@@ -18,6 +18,9 @@ public class Neimplementovano implements Thread.UncaughtExceptionHandler {
         JOptionPane.showMessageDialog(null, 
                 "Tato možnost ještě není implementována.\n"+e.getMessage(), 
                 "Upozornění", JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(null, 
+                e.getStackTrace(), 
+                "Stack", JOptionPane.INFORMATION_MESSAGE);
     }
     
 }

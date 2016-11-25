@@ -8,12 +8,14 @@ package fraktal20;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.HeadlessException;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.image.BufferedImage;
 import java.beans.PropertyChangeEvent;
 import java.io.File;
 import java.io.IOException;
+import java.util.EnumMap;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -54,14 +56,22 @@ public class Okno extends JFrame{
     }
     
     private void inicializace(){
+        inicializaceOkna();
+        inicializaceNabidky();
+        inicializaceKresleni();
+    }
+
+    private void inicializaceOkna() throws HeadlessException {
         // Okno
         Dimension obrazovka = Toolkit.getDefaultToolkit().getScreenSize();
         setBounds((obrazovka.width - 400)/2, (obrazovka.height - 300)/2, 400, 300);
         setTitle("Fraktalnik 2016");
-        setLayout(new BorderLayout()); 
+        setLayout(new BorderLayout());
         add(panelSObrazkem); 
         setJMenuBar(nabidka);
-        
+    }
+
+    private void inicializaceNabidky() {
         // Nabidka
         nabidka.add(obrazekMenu);
         nabidka.add(nastaveniMenu);
@@ -81,20 +91,39 @@ public class Okno extends JFrame{
         // Napoveda menu
         napovedaMenu.add(aboutItem);
         
+        inicializaceListeneruNabidky();
+    }
+
+    private void inicializaceListeneruNabidky() {
         // Obsluha nabídky
         konecItem.addActionListener((e)->{System.exit(0);});
         aboutItem.addActionListener(this::oProgamu);
         nakresliItem.addActionListener(this::nakresli); 
         obnovitItem.addActionListener((e)->{Nastaveni.getNastaveni().obnovVychoziNastaveni();});
-        upravitItem.addActionListener(this::otevriDialogNastaveni); 
-        ulozItem.addActionListener(this::ulozObrazek); 
-        
+        upravitItem.addActionListener(this::otevriDialogNastaveni);
+        ulozItem.addActionListener(this::ulozObrazek);
+    }
+    
+    private void inicializaceKresleni() {
+        metodyKresleni.put(ZpusobKresleni.OSTRE_OKRAJE, this::nakresliObratekOstre);
+        metodyKresleni.put(ZpusobKresleni.PLYNULY_PRECHOD, this::nakresliObrazekPlynule);
+        kresleni = metodyKresleni.get(Nastaveni.getNastaveni().getZpusobKresleni());
     }
     
     private void nakresli(ActionEvent e){
-        //try{
-        Dimension rozmeryOkna = this.getContentPane().getSize();
-        Fraktal fraktal = new UnikovyFraktal();
+        kresleni = metodyKresleni.get(Nastaveni.getNastaveni().getZpusobKresleni());
+        try{
+            Dimension rozmeryOkna = panelSObrazkem.getSize();
+            Fraktal fraktal = new UnikovyFraktal(postup.getProgressBar());
+            // TODO zakaz kresleni
+            Vypocet /*vnorena trida*/ vypocet = new Vypocet(rozmeryOkna, fraktal);
+            vypocet.execute(); // to je podedena metoda z SwingWorker .. bezi na pozadi
+        }catch(ClassCastException ec){
+            JOptionPane.showMessageDialog(this, "Jakysi problem se tridou: " + 
+                    Nastaveni.getNastaveni().getJmenoTridyFraktalu() + "\n"
+                    , "Upozorneni", JOptionPane.ERROR_MESSAGE);
+        }
+        /*
         //nastroje.VypocetFraktalu fraktal = new Mandelbrot();
         obrazek = new BufferedImage(rozmeryOkna.width, rozmeryOkna.height, BufferedImage.TYPE_3BYTE_BGR);
         int poctyIteraci[][] = fraktal.vypoctiFraktal(rozmeryOkna);
@@ -106,8 +135,29 @@ public class Okno extends JFrame{
                     obrazek.setRGB(i,j,Nastaveni.getNastaveni().getBarvaFraktalu().getRGB());
                 }
             }
-        /* Proc volam Okno.this? */
+        
         Okno.this.repaint();
+        */
+    }
+    
+    private BufferedImage nakresliObrazekPlynule(Dimension rozmery){
+        // TODO
+        return nakresliObratekOstre(rozmery);
+    }
+    
+    private BufferedImage nakresliObratekOstre(Dimension rozmery){
+        Nastaveni n = Nastaveni.getNastaveni();
+        int sirka = rozmery.width;
+        int vyska = rozmery.height;
+        
+        
+        
+        BufferedImage obrazek = new BufferedImage(sirka, sirka, BufferedImage.TYPE_3BYTE_BGR);
+        for(int i = 0; i < sirka; i++)
+            for(int j = 0; j < vyska; j++) 
+                obrazek.setRGB(i,j, (poctyIteraci[i][j] < n.getPocetIteraci()) ? n.getBarvaPozadi().getRGB() : n.getBarvaFraktalu().getRGB());
+        
+        return obrazek;
     }
     
     private void ulozObrazek(ActionEvent ae){
@@ -182,6 +232,7 @@ public class Okno extends JFrame{
     private final JMenuItem aboutItem = new JMenuItem("O programu");
     
     private Kresleni kresleni;
+    private final EnumMap<ZpusobKresleni, Kresleni> metodyKresleni = new EnumMap<>(ZpusobKresleni.class);
     private BufferedImage obrazek = null;
     private final KresliciPanel panelSObrazkem = new KresliciPanel(this);
     
@@ -202,18 +253,21 @@ public class Okno extends JFrame{
 
         @Override
         protected Void doInBackground() throws Exception {
-            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+            // setVisible je blocking? prijde mi divne, ze patri do background
+            Okno.this.postup.setVisible(true); 
+            poctyIteraci = fraktal.vypoctiFraktal(rozmer);
+            return null;
         }
 
         @Override
         public void done(){ // zavola se v tomto threadu; ne v pozadi
-            obrazek = Okno.this.kresleni.vybarvi(rozmer); // musi byt nestaticka vnitrni trida
+            /* Okno.this. */obrazek = Okno.this.kresleni.vybarvi(rozmer); // musi byt nestaticka vnitrni trida
             repaint(); // protoze Okno je potomek JFrame
             
             // obsluha nabidky a uprava GUI - za/odblokovani nabidky
             Okno.this.postup.setVisible(false);
             Okno.this.postup.getProgressBar().setValue(0);
-            // TODO
+            // TODO v budoucnu, at bude asi panel
         }
 
         private final Dimension rozmer;

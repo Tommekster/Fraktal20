@@ -30,6 +30,7 @@ public class Nastaveni {
     private final String[][] jmenaFraktalu;
     private final String jmenoTridyFraktalu;
     private boolean paralelne;
+    private ZpusobKresleni zpusobKresleni;
     
     private final Map<String,String> seznamFraktalu;
     
@@ -45,6 +46,7 @@ public class Nastaveni {
         barvaFraktalu = Color.BLUE;
         barvaPozadi = Color.white;
         paralelne = false;
+        zpusobKresleni = ZpusobKresleni.OSTRE_OKRAJE;
         
         String[][] jf = {
             {"Mandelbrot", "fraktal20.Mandelbrot"},
@@ -82,6 +84,7 @@ public class Nastaveni {
     public Color getBarvaPozadi(){return barvaPozadi;}
     public Color getBarvaFraktalu(){return barvaFraktalu;}
     public boolean isParalelne(){return paralelne;}
+    public ZpusobKresleni getZpusobKresleni(){return zpusobKresleni;} 
     public String[] getJmenaFraktalu(){return seznamFraktalu.keySet().toArray(new String[0]);}
     public String getJmenoTridyFraktalu(String jmenoFraktalu){return seznamFraktalu.get(jmenoFraktalu);}
     public String getJmenoTridyFraktalu(){return jmenoTridyFraktalu;}
@@ -94,6 +97,7 @@ public class Nastaveni {
     public void setYdo(double d){y_do = d;}
     public void setMezDivergence(double d){mezDivergence = d;}
     public void setPocetIteraci(int i){pocetIteraci = i;}
+    public void setZpusobKresleni(ZpusobKresleni kresleni){zpusobKresleni=kresleni;}
     public final void addFractal2List(String nameFractal, String nameClass){seznamFraktalu.put(nameFractal,nameClass);}
     
     public double x(int _x){ // Re
