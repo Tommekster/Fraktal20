@@ -7,6 +7,7 @@ package fraktal20;
 
 import java.awt.Color;
 import java.awt.Dimension;
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -16,7 +17,7 @@ import nastroje.Komplex;
  *
  * @author zikmuto2
  */
-public class Nastaveni {
+public class Nastaveni implements Serializable{
     // Singleton class
     private static Nastaveni nastaveni;
     private double x_od;
@@ -28,7 +29,7 @@ public class Nastaveni {
     private Color barvaFraktalu;
     private Color barvaPozadi;
     private final String[][] jmenaFraktalu;
-    private final String jmenoTridyFraktalu;
+    private String jmenoTridyFraktalu;
     private boolean paralelne;
     private ZpusobKresleni zpusobKresleni;
     
@@ -68,6 +69,10 @@ public class Nastaveni {
         return nastaveni;
     }
     
+    public static void loadNastaveni(Nastaveni n){
+        nastaveni = n;
+    }
+    
     public void aktualizujKonstanty(Dimension rozmerObrazku){
         ax = (x_do - x_od)/(double)rozmerObrazku.width;
         bx = x_od;
@@ -98,7 +103,9 @@ public class Nastaveni {
     public void setMezDivergence(double d){mezDivergence = d;}
     public void setPocetIteraci(int i){pocetIteraci = i;}
     public void setZpusobKresleni(ZpusobKresleni kresleni){zpusobKresleni=kresleni;}
+    public void setParalelne(boolean b){paralelne = b;}
     public final void addFractal2List(String nameFractal, String nameClass){seznamFraktalu.put(nameFractal,nameClass);}
+    public void setJmenoTridyFraktalu(String tridaFraktalu){jmenoTridyFraktalu = tridaFraktalu;}
     
     public double x(int _x){ // Re
         return ax*_x + bx;

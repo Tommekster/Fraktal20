@@ -41,9 +41,9 @@ public class UnikovyFraktal implements nastroje.Fraktal{
         vyska = rozmery.height;
         vysledek = new int[sirka][vyska];
         Nastaveni.getNastaveni().aktualizujKonstanty(rozmery);
-        IntStream proud = IntStream.iterate(0, n->n+1).limit(sirka);
+        IntStream proud = IntStream.iterate(0, /*lambda*/ n->n+1).limit(sirka);
         if(Nastaveni.getNastaveni().isParalelne()) proud.parallel();
-        proud.forEach(n->vypoctiSloupec(n));
+        proud.forEach(/*lambda funkce*/n->vypoctiSloupec(n));
         return vysledek;
     }
     

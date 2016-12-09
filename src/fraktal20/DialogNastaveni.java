@@ -10,6 +10,8 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import javax.swing.*;
 
 /**
@@ -20,7 +22,18 @@ public class DialogNastaveni extends JDialog {
     public DialogNastaveni(JFrame rodic){
         super(rodic, "Nastaveni", true /*co znamena*/);
         inicializace(); 
-        nactiNastaveni(); 
+        // nacteme nastaveni az v okamziku otevreni okna, aby bylo aktualni
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowOpened(WindowEvent e){ // tohle je kdyz se prvne otevre; to se hodi
+                //JOptionPane.showMessageDialog(DialogNastaveni.this, "opened");
+                nactiNastaveni(); 
+            }
+            /*@Override
+            public void windowActivated(WindowEvent e){ // Tohle je kazdy fokus
+                JOptionPane.showMessageDialog(DialogNastaveni.this, "activated");
+            }*/
+});
     }
     
     public final void nactiNastaveni(){
@@ -39,6 +52,10 @@ public class DialogNastaveni extends JDialog {
         
         vzorekBarvyFraktalu.setBackground(n.getBarvaFraktalu());
         vzorekBarvyPozadi.setBackground(n.getBarvaPozadi());
+        
+        zpusobKresleni = n.getZpusobKresleni();
+        zpusobKresleniBtns[n.getZpusobKresleni().ordinal()].setSelected(true);
+        chckParallel.setSelected(n.isParalelne());
         
         String[] jmenaFraktalu = n.getJmenaFraktalu();
         kjpFraktal.setJmenaFraktalu(jmenaFraktalu);
@@ -117,6 +134,9 @@ public class DialogNastaveni extends JDialog {
         vzorekBarvyFraktalu.setBounds(130, 90, 20, 20);
         napisBarvaPozadi.setBounds(10, 120, 100, 20);
         vzorekBarvyPozadi.setBounds(130, 120, 20, 20);
+        chckParallel.setBounds(10, 150, 220, 20);
+        radOstreHrany.setBounds(200, 30, 150, 20);
+        radPlynuleHrany.setBounds(200, 50, 150, 20);
         
         tlacitkoZmenBarvuFraktalu.setBounds(200, 90, 120, 20);
         tlacitkoZmenBarvuPozadi.setBounds(200, 120, 120, 20);
@@ -132,12 +152,21 @@ public class DialogNastaveni extends JDialog {
         jizniPanelVypocet.add(napisBarvaPozadi);
         jizniPanelVypocet.add(vzorekBarvyPozadi);
         jizniPanelVypocet.add(tlacitkoZmenBarvuFraktalu);
-        jizniPanelVypocet.add(tlacitkoZmenBarvuPozadi);        
+        jizniPanelVypocet.add(tlacitkoZmenBarvuPozadi);       
+        jizniPanelVypocet.add(chckParallel);
+        for(JRadioButton radBtn : zpusobKresleniBtns) {
+            jizniPanelVypocet.add(radBtn);
+            skupinaRadioBtn.add(radBtn);
+        }
         
+        // Obsluha udalosti
         // Tlacitko Zmen barvu fraktalu
         tlacitkoZmenBarvuFraktalu.addActionListener((ae) -> {vyberBarvu("Zvol barvu fraktalu", this.vzorekBarvyFraktalu);});
         // Tlacitko Zmen barvu pozadi
         tlacitkoZmenBarvuPozadi.addActionListener((ae) -> {vyberBarvu("Zvol barvu pozadi", this.vzorekBarvyPozadi);});
+        
+        radOstreHrany.addActionListener((ae)->zpusobKresleni=ZpusobKresleni.OSTRE_OKRAJE);
+        radPlynuleHrany.addActionListener((ae)->zpusobKresleni=ZpusobKresleni.PLYNULY_PRECHOD);
     }
     
     private void vyberBarvu(String title, JPanel vzorek){
@@ -225,6 +254,13 @@ public class DialogNastaveni extends JDialog {
             n.setPocetIteraci(pocetIteraci);
             n.setMezDivergence(mezDivergence);
             
+            n.setZpusobKresleni(zpusobKresleni);
+            n.setParalelne(chckParallel.isSelected());
+            if(kjpFraktal.getHodnotaVSeznamu() != null){
+                String trida = n.getJmenoTridyFraktalu(kjpFraktal.getHodnotaVSeznamu());
+                n.setJmenoTridyFraktalu(trida);
+            }
+            
             return true;
         }
         catch(NumberFormatException e){
@@ -269,6 +305,12 @@ public class DialogNastaveni extends JDialog {
     private final JTextField textMezDivergence = new JTextField();
     private final JPanel vzorekBarvyFraktalu = new JPanel();
     private final JPanel vzorekBarvyPozadi = new JPanel();
+    private final JCheckBox chckParallel = new JCheckBox("Paralelně");
+    private final JRadioButton radOstreHrany = new JRadioButton("ostré hrany");
+    private final JRadioButton radPlynuleHrany = new JRadioButton("plynulý přechod");
+    private final ButtonGroup skupinaRadioBtn = new ButtonGroup();
+    private final JRadioButton[] zpusobKresleniBtns = {radOstreHrany, radPlynuleHrany};
+    private ZpusobKresleni zpusobKresleni;
     
     private final JButton tlacitkoZmenBarvuFraktalu = new JButton("Změň...");
     private final JButton tlacitkoZmenBarvuPozadi = new JButton("Změň...");
@@ -302,7 +344,7 @@ class KomponentyJiznihoPaneluFraktal{
      * Vrati retezec se jmenem fraktalu, ktery uzivatel vybral
      * @return jmeno fraktalu
      */
-    public String vybranáHodnotaVSeznamu()
+    public String getHodnotaVSeznamu()
     {
         return this.seznamNabidkaFraktalu.getSelectedValue();
     }

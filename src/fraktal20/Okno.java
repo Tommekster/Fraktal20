@@ -6,16 +6,26 @@
 package fraktal20;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.HeadlessException;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.beans.PropertyChangeEvent;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.EnumMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -41,7 +51,8 @@ public class Okno extends JFrame{
     
     public Okno(){
         super();
-        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        //this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         inicializace();
     }
     
@@ -56,9 +67,19 @@ public class Okno extends JFrame{
     }
     
     private void inicializace(){
+        nactiNastaveni();
+        
         inicializaceOkna();
         inicializaceNabidky();
         inicializaceKresleni();
+        
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e){
+                ulozNastaveni();
+                System.exit(0);
+            }
+        });
     }
 
     private void inicializaceOkna() throws HeadlessException {
@@ -115,7 +136,7 @@ public class Okno extends JFrame{
         try{
             Dimension rozmeryOkna = panelSObrazkem.getSize();
             Fraktal fraktal = new UnikovyFraktal(postup.getProgressBar());
-            // TODO zakaz kresleni
+            // TODO zakaz kresleni v nabidce
             Vypocet /*vnorena trida*/ vypocet = new Vypocet(rozmeryOkna, fraktal);
             vypocet.execute(); // to je podedena metoda z SwingWorker .. bezi na pozadi
         }catch(ClassCastException ec){
@@ -123,26 +144,37 @@ public class Okno extends JFrame{
                     Nastaveni.getNastaveni().getJmenoTridyFraktalu() + "\n"
                     , "Upozorneni", JOptionPane.ERROR_MESSAGE);
         }
-        /*
-        //nastroje.VypocetFraktalu fraktal = new Mandelbrot();
-        obrazek = new BufferedImage(rozmeryOkna.width, rozmeryOkna.height, BufferedImage.TYPE_3BYTE_BGR);
-        int poctyIteraci[][] = fraktal.vypoctiFraktal(rozmeryOkna);
-        for(int i = 0; i < rozmeryOkna.width; i++)
-            for(int j = 0; j < rozmeryOkna.height; j++){
-                if(poctyIteraci[i][j] < Nastaveni.getNastaveni().getPocetIteraci()){
-                    obrazek.setRGB(i,j,Nastaveni.getNastaveni().getBarvaPozadi().getRGB());
-                }else{
-                    obrazek.setRGB(i,j,Nastaveni.getNastaveni().getBarvaFraktalu().getRGB());
-                }
-            }
-        
-        Okno.this.repaint();
-        */
     }
     
     private BufferedImage nakresliObrazekPlynule(Dimension rozmery){
-        // TODO
-        return nakresliObratekOstre(rozmery);
+        Nastaveni n = Nastaveni.getNastaveni();
+        int sirka = rozmery.width;
+        int vyska = rozmery.height;
+        Color startC = n.getBarvaFraktalu();
+        int start[] = {startC.getRed(),startC.getGreen(),startC.getBlue()};
+        Color cilC = n.getBarvaPozadi();
+        int cil[] = {cilC.getRed(),cilC.getGreen(),cilC.getBlue()};
+        
+        
+        BufferedImage obrazek = new BufferedImage(sirka, vyska, BufferedImage.TYPE_3BYTE_BGR);
+        
+        out: for(int i = 0; i < sirka; i++)
+            for(int j = 0; j < vyska; j++){
+                if(poctyIteraci[i][j] >= n.getPocetIteraci())
+                    obrazek.setRGB(i, j, n.getBarvaFraktalu().getRGB());
+                else{
+                    double x = ((double)(n.getPocetIteraci() - poctyIteraci[i][j]))/(double)n.getPocetIteraci();
+                    
+                    int rgb[] = new int[3];
+                    for(int k = 0; k < 3; k++){
+                        rgb[k] = (int)(cil[k]*x + start[k]*(1-x));
+                    }
+                    
+                    obrazek.setRGB(i, j, new Color(rgb[0],rgb[1],rgb[2]).getRGB());
+                }
+            }
+        
+        return obrazek;
     }
     
     private BufferedImage nakresliObratekOstre(Dimension rozmery){
@@ -150,9 +182,7 @@ public class Okno extends JFrame{
         int sirka = rozmery.width;
         int vyska = rozmery.height;
         
-        
-        
-        BufferedImage obrazek = new BufferedImage(sirka, sirka, BufferedImage.TYPE_3BYTE_BGR);
+        BufferedImage obrazek = new BufferedImage(sirka, vyska, BufferedImage.TYPE_3BYTE_BGR);
         for(int i = 0; i < sirka; i++)
             for(int j = 0; j < vyska; j++) 
                 obrazek.setRGB(i,j, (poctyIteraci[i][j] < n.getPocetIteraci()) ? n.getBarvaPozadi().getRGB() : n.getBarvaFraktalu().getRGB());
@@ -176,7 +206,8 @@ public class Okno extends JFrame{
                 String format = "PNG";
                 if(jfc.getFileFilter().equals(filtrBMP)) format = "BMP";
                 
-                File vybranySoubor = new File(jfc.getCurrentDirectory().getAbsolutePath(), jfc.getSelectedFile().getName());
+                File vybranySoubor = new File(jfc.getCurrentDirectory()
+                        .getAbsolutePath(), jfc.getSelectedFile().getName());
                 ImageIO.write(obrazek, format, vybranySoubor);
             }
         }catch(IOException ex){
@@ -210,6 +241,38 @@ public class Okno extends JFrame{
                 new ImageIcon(ikony.Pristup.class.getResource("strom.png")));
     }
     
+    private void ulozNastaveni() {
+        try(
+                FileOutputStream fileOut = new FileOutputStream("settings.ser");
+                ObjectOutputStream out = new ObjectOutputStream(fileOut);
+        ){
+            out.writeObject(Nastaveni.getNastaveni());
+            //out.close();
+            //fileOut.close();
+        } catch (FileNotFoundException ex) {
+            Logger.getLogger(Okno.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(Okno.class.getName()).log(Level.SEVERE, null, ex);
+        } 
+    }
+    private void nactiNastaveni() {
+        try(
+                FileInputStream fileIn = new FileInputStream("settings.ser");
+                ObjectInputStream in = new ObjectInputStream(fileIn);
+        ){
+            Nastaveni saved = (Nastaveni) in.readObject();
+            Nastaveni.loadNastaveni(saved);
+            //in.close();
+            //fileIn.close();
+        } catch (FileNotFoundException ex) {
+            Logger.getLogger(Okno.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(Okno.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (ClassNotFoundException ex) {
+            Logger.getLogger(Okno.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
     public boolean isNakresleno(){return obrazek != null;}
     public BufferedImage getObrazekFraktalu(){return obrazek;}
     public void otevriDialogNastaveni(ActionEvent ae){
@@ -240,7 +303,7 @@ public class Okno extends JFrame{
     
     private int poctyIteraci[][]; // pouzije se v jednotlivych thredech, proto je jako field
     
-    /** Okno s progrssbarem */
+    /** Okno s progressbarem */
     private final Postup postup = new Postup();
 
     // Nestaticka vnitrni trida
